@@ -24,7 +24,4 @@ public class AccountService {
         return accountDAO.insertAccount(account);
     }
 
-    public boolean isUsernameTaken(String username) {
-        return accountDAO.isUsernameTaken(username);
-    }
 }

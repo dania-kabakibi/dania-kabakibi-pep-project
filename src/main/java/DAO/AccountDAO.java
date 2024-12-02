@@ -32,14 +32,19 @@ public class AccountDAO {
     public Account insertAccount(Account account){
         Connection connection = ConnectionUtil.getConnection();
         try {
-            String sql = "INSERT INTO account(account_id, username, password) VALUES(?,?,?);";
+            String sql = "INSERT INTO account(username, password) VALUES(?,?);";
             PreparedStatement preparedStatement = connection.prepareStatement(sql);
 
-            preparedStatement.setInt(0, account.getAccount_id());
             preparedStatement.setString(1, account.getUsername());
             preparedStatement.setString(2, account.getPassword());
 
-            preparedStatement.executeUpdate();
+            preparedStatement.execute();
+            ResultSet resultSet = preparedStatement.getGeneratedKeys();
+            if(resultSet.next()){
+                int accountId = resultSet.getInt(1);   
+                account.setAccount_id(accountId);
+                return account;
+            }
         } catch(SQLException e){
             System.out.println(e.getMessage());
         }
