@@ -42,7 +42,7 @@ public class SocialMediaController {
         app.get("/messages/{message_id}", this::retrieveMessageByIdHandler);
         app.delete("/messages/{message_id}", this::deleteMessageByIdHandler);
         app.patch("/messages/{message_id}", this::updateMessageHandler);
-        app.get("/accounts/{account_id}/messages", this::getAllMessagesHandler);
+        app.get("/accounts/{account_id}/messages", this::getMessagesByUserIdHandler);
 
         return app;
     }
@@ -75,106 +75,131 @@ public class SocialMediaController {
         
     }
 
-    private void userLoginHandler(Context context) throws JsonProcessingException {
+    private void userLoginHandler(Context context) {
         ObjectMapper mapper = new ObjectMapper();
-        Account loginRequest = mapper.readValue(context.body(), Account.class);
-        if (loginRequest.getUsername() == null || loginRequest.getUsername().isBlank() || 
-            loginRequest.getPassword() == null || loginRequest.getPassword().isBlank()) {
+        try {
+            Account account = mapper.readValue(context.body(), Account.class);
+            Account result = accountService.loginAccount(account);
+            if(result == null){
+                context.status(401);
+            }
+            else{
+                context.json(mapper.writeValueAsString(result));                
+            }
+        } catch(JsonProcessingException e){
             context.status(400);
-            return;
         }
-
-        // Account storedAccount = accountDAO.findAccountByUsername(loginRequest.getUsername());
-        // if (storedAccount != null && storedAccount.getPassword().equals(loginRequest.getPassword())) {
-        //     context.json(storedAccount).status(200);
-        // } else {
-        //     context.status(401);
-        // }
 
     }
 
-    private void createMessageHandler(Context context) throws JsonProcessingException {
+    private void createMessageHandler(Context context) {
         ObjectMapper mapper = new ObjectMapper();
-    
         try {
             Message message = mapper.readValue(context.body(), Message.class);
-    
-            if (message.getMessage_text() == null || message.getMessage_text().isBlank()) {
-                context.status(400).result("Message text cannot be blank.");
-                return;
+            boolean userExists = accountService.accountExist(message.getPosted_by());
+            if(userExists){
+                Message insertedMessage = messageService.addMessage(message);
+                if(insertedMessage != null){
+                    context.json(mapper.writeValueAsString(insertedMessage));
+                    return;
+                }
             }
-    
-            if (message.getMessage_text().length() > 255) {
-                context.status(400).result("Message text cannot exceed 255 characters.");
-                return;
-            }
-    
-            Message newMessage = messageService.AddMessage(message);
-    
-            context.json(newMessage);
-    
         } catch (JsonProcessingException e) {
-            context.status(400).result("Invalid JSON format.");
-        } catch (Exception e) {
-            context.status(500).result("An unexpected error occurred.");
+            System.out.println(e.getMessage());
         }
+        context.status(400);
     }
     
     public void retrieveAllMessagesHandler(Context context) {
+        ObjectMapper mapper = new ObjectMapper();
         try {
             List<Message> messages = messageService.getAllMessages();
-    
-            context.json(messages);
-    
-        } catch (Exception e) {
-            context.status(500);
+            context.json(mapper.writeValueAsString(messages));
+            return;
+        } catch (JsonProcessingException e){
+            System.out.println(e.getMessage());
         }
+        context.status(400);
     }
 
     public void retrieveMessageByIdHandler(Context context) {
-        // int messageId = Integer.parseInt(context.pathParam("message_id"));
-        // Message message = messageDAO.getMessageById(messageId);
-
-        // if (message != null) {
-        //     context.json(message);
-        // } else {
-        //         context.status(200);
-        //         context.result("");
-        // }
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            int message_id = Integer.parseInt(context.pathParam("message_id"));
+            Message message = messageService.getMessageById(message_id);
+            if(message != null){
+                context.json(mapper.writeValueAsString(message));
+            }
+            else{
+                context.status(200);
+            }
+            return;
+        }catch(JsonProcessingException e){
+            System.out.println(e.getMessage());
+        }
+        catch(NumberFormatException e){
+            System.out.println(e.getMessage());
+        }
+        context.status(400);
     }
 
     private void deleteMessageByIdHandler(Context context) {
-        // int messageId = Integer.parseInt(context.pathParam("message_id"));
-        // List<Message> messages = messageService.getAllMessages();
-        // if (messageDAO.getMessageById(messageId) != null) {
-        //     messages.remove(messageId);
-        //     context.status(204);
-        // } else {
-        //     context.status(404);
-        // }
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            int message_id = Integer.parseInt(context.pathParam("message_id"));
+            Message deleted_message = messageService.deleteMessageById(message_id);
+            if(deleted_message != null){
+                context.json(mapper.writeValueAsString(deleted_message));
+            }
+            else{
+                context.status(200);
+            }
+            return;
+        } catch(JsonProcessingException e){
+            System.out.println(e.getMessage());
+        }
+        catch(NumberFormatException e){
+            System.out.println(e.getMessage());
+        }
+        context.status(400);
     }
 
     private void updateMessageHandler(Context context) {
-    //     int messageId = Integer.parseInt(context.pathParam("message_id"));
-    //     String newMessageText = context.body();
-    //     if (newMessageText == null || newMessageText.isEmpty() || newMessageText.length() > 255) {
-    //         context.status(400);
-    //         return;
-    //     }
-    //     Message message = messageDAO.getMessageById(messageId);
-    // if (message == null) {
-    //     context.status(400);
-    //     return;
-    // }
-    // messageDAO.updateMessage(message);
-    // context.json(message);
-
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            int message_id = Integer.parseInt(context.pathParam("message_id"));
+            Message message = mapper.readValue(context.body(), Message.class);
+            Message updated_message = messageService.updateMessageById(message_id, message.getMessage_text());
+            if(updated_message != null){
+                context.json(mapper.writeValueAsString(updated_message));
+            }
+            else{
+                context.status(400);
+            }
+            return;
+        }catch(JsonProcessingException e){
+            System.out.println(e.getMessage());
+        }
+        catch(NumberFormatException e){
+            System.out.println(e.getMessage());
+        }
+        context.status(400);
     }
 
-    private void getAllMessagesHandler(Context context) {
-        // int accountId = Integer.parseInt(context.pathParam("account_id"));
-        // List<Message> messages = messageDAO.findByAccountId(accountId);
-        // context.json(messages);
+    private void getMessagesByUserIdHandler(Context context) {
+        ObjectMapper mapper = new ObjectMapper();
+        try{
+            int user_id = Integer.parseInt(context.pathParam("account_id"));
+            List<Message> messages = messageService.getMessagesByUser(user_id);
+            context.json(mapper.writeValueAsString(messages));
+            return;
+        }catch(JsonProcessingException e){
+            System.out.println(e.getMessage());
+        }
+        catch(NumberFormatException e){
+            System.out.println(e.getMessage());
+        }
+        context.status(400);
     }
 
 }

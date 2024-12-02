@@ -20,9 +20,46 @@ public class MessageService {
         return messageDAO.getAllMessages();
     }
 
-    public Message AddMessage(Message message){
-        if(messageDAO.getMessageById(message.getMessage_id()) == null){
+    public Message addMessage(Message message) {
+        if(!message.getMessage_text().isBlank() && message.getMessage_text().length() < 256){
             return messageDAO.insertMessage(message);
-        } else return null;
+        }
+        return null;
     }
+
+    public Message getMessageById(int message_id) {
+        if(message_id >= 0){
+            return messageDAO.getMessageById(message_id);
+        }
+        return null;
+    }
+
+    public Message deleteMessageById(int message_id) {
+        if(message_id >= 0){ // valid id
+            Message message = messageDAO.getMessageById(message_id);
+            if(message != null){
+                if(messageDAO.deleteMessageById(message_id)){
+                    return message;
+                }
+            }
+        }
+        return null;
+    }
+
+    public Message updateMessageById(int message_id, String new_text) {
+        if(message_id >= 0){ 
+            if(!new_text.isBlank() && new_text.length() < 256){
+                Message message = messageDAO.getMessageById(message_id);
+                if(message != null){
+                    return messageDAO.updateMessageById(message, new_text);
+                }
+            }
+        }
+        return null;
+    }
+
+    public List<Message> getMessagesByUser(int user_id) {
+        return messageDAO.getMessagesbyPostedBy(user_id);
+    }
+
 }
