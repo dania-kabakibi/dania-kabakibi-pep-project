@@ -1,10 +1,15 @@
 package Controller;
 
+import java.util.List;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import DAO.AccountDAO;
+import DAO.MessageDAO;
 import Model.Account;
+import Model.Message;
 import Service.AccountService;
 import Service.MessageService;
 import io.javalin.Javalin;
@@ -18,10 +23,14 @@ import io.javalin.http.Context;
 public class SocialMediaController {
     AccountService accountService;
     MessageService messageService;
+    AccountDAO accountDAO;
+    MessageDAO messageDAO;
 
     public SocialMediaController() {
         this.accountService = new AccountService();
         this.messageService = new MessageService();
+        this.accountDAO = new AccountDAO();
+        this.messageDAO = new MessageDAO();
     }
     /**
      * In order for the test cases to work, you will need to write the endpoints in the startAPI() method, as the test
@@ -35,8 +44,8 @@ public class SocialMediaController {
         app.post("/login", this::userLoginHandler);
         app.post("/messages",this::createMessageHandler);
         app.get("/messages", this::retrieveAllMessagesHandler);
-        app.get("/messages/:message_id", this::retrieveMessageByIdHandler);
-        app.delete("/messages/:message_id", this::deleteMessageByIdHandler);
+        app.get("/messages/{message_id}", this::retrieveMessageByIdHandler);
+        app.delete("/messages/{message_id}", this::deleteMessageByIdHandler);
         app.patch("/messages/{message_id}", this::updateMessageHandler);
         app.get("/accounts/{account_id}/messages", this::getAllMessagesHandler);
         app.start(8080);
@@ -56,33 +65,122 @@ public class SocialMediaController {
     private void userRegistrationHandler(Context context) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
         Account account = mapper.readValue(context.body(), Account.class);
-        if(account.username != null) {
-            if(account.password.length() >= 4) {
-                if(account.getUsername() == null) {
-                    context.json(mapper.writeValueAsString(accountService.addAccount(account)));
-                }
-            }
+        if (account.getUsername() == null || account.getUsername().isBlank()) {
+            context.status(400);
+            return;
         }
+        if (account.getPassword() == null || account.getPassword().length() < 4) {
+            context.status(400);
+            return;
+        }
+        if (accountService.isUsernameTaken(account.getUsername())) {
+            context.status(400);
+            return;
+        }
+        Account newAccount = accountService.addAccount(account);
+        context.json(newAccount);
     }
 
     private void userLoginHandler(Context context) throws JsonProcessingException {
         ObjectMapper mapper = new ObjectMapper();
-        Account account = mapper.readValue(context.body(), Account.class);
-        if(account.getUsername() != null && account.getPassword() != null){
-            context.json(account);
+        Account loginRequest = mapper.readValue(context.body(), Account.class);
+        if (loginRequest.getUsername() == null || loginRequest.getUsername().isBlank() || 
+            loginRequest.getPassword() == null || loginRequest.getPassword().isBlank()) {
+            context.status(400);
+            return;
+        }
+
+        Account storedAccount = accountDAO.findAccountByUsername(loginRequest.getUsername());
+        if (storedAccount != null && storedAccount.getPassword().equals(loginRequest.getPassword())) {
+            context.json(storedAccount);
+        } else {
+            context.status(401);
+        }
+
+    }
+
+    private void createMessageHandler(Context context) throws JsonProcessingException {
+        ObjectMapper mapper = new ObjectMapper();
+    
+        try {
+            Message message = mapper.readValue(context.body(), Message.class);
+    
+            if (message.getMessage_text() == null || message.getMessage_text().isBlank()) {
+                context.status(400).result("Message text cannot be blank.");
+                return;
+            }
+    
+            if (message.getMessage_text().length() > 255) {
+                context.status(400).result("Message text cannot exceed 255 characters.");
+                return;
+            }
+    
+            Message newMessage = messageService.AddMessage(message);
+    
+            context.json(newMessage);
+    
+        } catch (JsonProcessingException e) {
+            context.status(400).result("Invalid JSON format.");
+        } catch (Exception e) {
+            context.status(500).result("An unexpected error occurred.");
+        }
+    }
+    
+    public void retrieveAllMessagesHandler(Context context) {
+        try {
+            List<Message> messages = messageService.getAllMessages();
+    
+            context.json(messages);
+    
+        } catch (Exception e) {
+            context.status(500);
         }
     }
 
-    private void createMessageHandler(Context context) {}
+    public void retrieveMessageByIdHandler(Context context) {
+        int messageId = Integer.parseInt(context.pathParam("message_id"));
+        Message message = messageDAO.getMessageById(messageId);
 
-    public void retrieveAllMessagesHandler(Context context) {}
+        if (message != null) {
+            context.json(message);
+        } else {
+                context.status(200);
+                context.result("");
+        }
+    }
 
-    public void retrieveMessageByIdHandler(Context context) {}
+    private void deleteMessageByIdHandler(Context context) {
+        int messageId = Integer.parseInt(context.pathParam("message_id"));
+        List<Message> messages = messageService.getAllMessages();
+        if (messageDAO.getMessageById(messageId) != null) {
+            messages.remove(messageId);
+            context.status(204);
+        } else {
+            context.status(404);
+        }
+    }
 
-    private void deleteMessageByIdHandler(Context context) {}
+    private void updateMessageHandler(Context context) {
+        int messageId = Integer.parseInt(context.pathParam("message_id"));
+        String newMessageText = context.body();
+        if (newMessageText == null || newMessageText.isEmpty() || newMessageText.length() > 255) {
+            context.status(400);
+            return;
+        }
+        Message message = messageDAO.getMessageById(messageId);
+    if (message == null) {
+        context.status(400);
+        return;
+    }
+    messageDAO.updateMessage(message);
+    context.json(message);
 
-    private void updateMessageHandler(Context context) {}
+    }
 
-    private void getAllMessagesHandler(Context context) {}
+    private void getAllMessagesHandler(Context context) {
+        int accountId = Integer.parseInt(context.pathParam("account_id"));
+        List<Message> messages = messageDAO.findByAccountId(accountId);
+        context.json(messages);
+    }
 
 }

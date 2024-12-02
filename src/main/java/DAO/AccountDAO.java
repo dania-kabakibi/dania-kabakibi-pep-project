@@ -8,10 +8,10 @@ import Model.Account;
 import Util.ConnectionUtil;
 
 public class AccountDAO {
+    Connection connection = ConnectionUtil.getConnection();
+    List<Account> accounts = new ArrayList<>();
 
     public List<Account> getAllAccounts(){
-        Connection connection = ConnectionUtil.getConnection();
-        List<Account> accounts = new ArrayList<>();
         try{
         String sql = "SELECT * FROM account;";
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
@@ -44,6 +44,17 @@ public class AccountDAO {
             System.out.println(e.getMessage());
         }
         return null;
+    }
+
+    public boolean isUsernameTaken(String username) {
+        return accounts.stream().anyMatch(account -> account.getUsername().equals(username));
+    }
+
+    public Account findAccountByUsername(String username) {
+        return accounts.stream()
+                       .filter(account -> account.getUsername().equals(username))
+                       .findFirst()
+                       .orElse(null);
     }
 
 }
