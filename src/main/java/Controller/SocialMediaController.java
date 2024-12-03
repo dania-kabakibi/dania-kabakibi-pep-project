@@ -5,8 +5,6 @@ import java.util.List;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import DAO.AccountDAO;
-import DAO.MessageDAO;
 import Model.Account;
 import Model.Message;
 import Service.AccountService;
@@ -60,19 +58,22 @@ public class SocialMediaController {
         ObjectMapper mapper = new ObjectMapper();
         try{
             Account account = mapper.readValue(context.body(), Account.class);
-            Account newAccount = accountService.addAccount(account);
-
+            
             if(account.getUsername() == null || account.getUsername().isBlank() || account.getPassword().length() < 4) {
                 context.status(400);
             }
             else {
-                context.json(mapper.writeValueAsString(newAccount));                
+                Account newAccount = accountService.addAccount(account);
+                if(newAccount != null){
+                    context.json(mapper.writeValueAsString(newAccount));
+                    return;
+                }
             }
             
         } catch(JsonProcessingException e){
-            context.status(400);
+            System.out.println(e.getMessage());
         }
-        
+        context.status(400);        
     }
 
     private void userLoginHandler(Context context) {

@@ -28,7 +28,7 @@ public class AccountService {
         if(!account.getUsername().isBlank()) { 
             Account test_account = accountDAO.getAccountByUsername(account.getUsername());
             if(test_account != null) {
-                if(account.getPassword().equals(test_account.getPassword())){ // passwords match
+                if(account.getPassword().equals(test_account.getPassword())){
                     return test_account;
                 }                
             }
